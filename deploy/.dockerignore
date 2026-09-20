@@ -1,0 +1,10 @@
+node_modules
+wwwroot
+.git
+*.log
+smoke-test.py
+Dockerfile
+docker-compose.yml
+aminamval.service
+run.sh
+.k8s

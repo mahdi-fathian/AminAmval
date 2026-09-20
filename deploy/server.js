@@ -25,7 +25,7 @@ const http = require('./lib/http-util');
 const authmod = require('./lib/auth');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const WEBROOT = path.join(REPO_ROOT, 'src', 'AminAmval.Api', 'wwwroot');
+const WEBROOT = process.env.WEBROOT || path.join(REPO_ROOT, 'src', 'AminAmval.Api', 'wwwroot');
 const DATA_DIR = process.env.DATA_DIR || path.join(REPO_ROOT, 'src', 'AminAmval.Api', 'runtime-data');
 
 const PREVIEW = (process.env.PREVIEW_MODE || 'true') !== 'false';
