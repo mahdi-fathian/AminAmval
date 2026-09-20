@@ -87,8 +87,8 @@ jobs:
           file: deploy/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/mahdi-fathian/aminamval:latest
+            ghcr.io/mahdi-fathian/aminamval:${{ github.sha }}
           labels: |
             org.opencontainers.image.description=AminAmval asset management (Node + SQLite)
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
