@@ -1,0 +1,94 @@
+name: AminAmval deploy (verify + image)
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+concurrency:
+  group: aminamval-deploy
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # --------------------------------------------------------------------------
+  # ۱) اجرای واقعی سرور در CI و اجرای ۳۵ آزمون انتها-به-انتها
+  # --------------------------------------------------------------------------
+  verify:
+    name: Boot + 35 assertions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: deploy/package-lock.json
+
+      - name: Install runtime deps
+        run: npm ci --omit=dev
+        working-directory: deploy
+
+      - name: Boot AminAmval on :8098 (throwaway DB)
+        working-directory: deploy
+        env:
+          PORT: "8098"
+          DATA_DIR: /tmp/amin-data
+          ADMIN_PASSWORD: Admin1289@@@
+          CUSTODIAN_PASSWORD: Jamdar1289@@@
+          PREVIEW_MODE: "true"
+        run: |
+          node server.js > /tmp/amin.log 2>&1 &
+          echo $! > /tmp/amin.pid
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8098/api/health >/dev/null && break
+            sleep 0.5
+          done
+          curl -fsS http://localhost:8098/api/health
+          echo "--- server log ---"; tail -n 20 /tmp/amin.log
+
+      - name: Run 35-assertion smoke suite
+        working-directory: deploy
+        run: |
+          sed 's#http://localhost:8097#http://localhost:8098#' smoke-test.py > /tmp/smoke.py
+          python3 /tmp/smoke.py
+        shell: bash
+
+      - name: Log summary (audit trail)
+        run: tail -n 20 /tmp/amin.log || true
+
+  # --------------------------------------------------------------------------
+  # ۲) بیلد تصویر تولیدی و بارگذاری در GitHub Container Registry
+  # --------------------------------------------------------------------------
+  image:
+    name: Build + publish OCI image (GHCR)
+    runs-on: ubuntu-latest
+    needs: verify
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.description=AminAmval asset management (Node + SQLite)
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

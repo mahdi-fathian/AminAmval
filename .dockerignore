@@ -1,0 +1,19 @@
+# Docker build context ignore rules (context = repository root)
+.git
+.gitignore
+**/node_modules
+**/*.log
+# runtime state must never enter the image
+src/AminAmval.Api/runtime-data
+deploy/smoke-test.py
+deploy/Dockerfile
+deploy/docker-compose.yml
+deploy/aminamval.service
+deploy/run.sh
+deploy/env.example
+deploy/DEPLOY.md
+deploy/README.md
+# .NET sources are not needed in the Node runtime image
+**/bin
+**/obj
+*.binlog
