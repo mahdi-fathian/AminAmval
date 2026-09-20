@@ -1,0 +1,40 @@
+# Render Blueprint — AminAmval (امین اموال ناواکو)
+# دیپلوی یک‌کلیکی و رایگان:
+#   Dashboard رندر → New → Blueprint → اتصال ریپوی GitHub → انتخاب شاخهٔ
+#   arena/01a0bd98-aminamval → Apply.
+# نتیجه: سرویس وب عمومی و رایگان روی https://aminamval.onrender.com
+#
+# نکتهٔ پایداری داده: طرح رایگان Render دیسکِ ephemeral دارد (داده‌ها با هر
+# استقرارِ جدید بازنشانی می‌شوند اما در Sleep/بیداری باقی می‌مانند). برای
+# ماندگاری دائمی داده‌ها، طرح پولی + دیسکِ ماندگار را فعال کنید (بخش «disk»
+# پایین را کامنت‌زدایی و plan را به starter تغییر دهید).
+services:
+  - type: web
+    name: aminamval
+    runtime: docker
+    repo: https://github.com/mahdi-fathian/AminAmval
+    branch: arena/01a0bd98-aminamval
+    plan: free
+    region: oregon
+    dockerContext: .
+    dockerfilePath: ./deploy/Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: ADMIN_PASSWORD
+        value: Admin1289@@@
+      - key: CUSTODIAN_PASSWORD
+        value: Jamdar1289@@@
+      - key: PREVIEW_MODE
+        value: "true"
+      - key: BACKUP_HOUR_UTC
+        value: "22"
+      - key: BACKUP_MINUTE_UTC
+        value: "30"
+      - key: BACKUP_RETENTION_DAYS
+        value: "14"
+    # ⬇️ برای ماندگاری دائمی داده‌ها (طرح پولی): این بلوک را فعال و
+    #    plan بالا را به "starter" تغییر دهید:
+    # disk:
+    #   name: aminamval-data
+    #   mountPath: /data
+    #   sizeGB: 1

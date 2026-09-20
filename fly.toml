@@ -1,0 +1,31 @@
+# Fly.io — AminAmval (امین اموال ناواکو)
+# جایگزین Render (نکته: فایاو/فلای حساب جدید را به کارت بانکی وابسته می‌کند).
+#
+# دیپلوی:
+#   flyctl auth login
+#   flyctl launch   # یا: flyctl apps create aminamval && flyctl volumes create amin_data --region iad && flyctl deploy
+# نتیجه: https://aminamval.fly.dev
+#
+# حجم ماندگار amin_data → مسیر /data (دیتابیس/آپلود/کلید/پشتیبان)
+
+app = "aminamval"
+primary_region = "iad"
+
+[build]
+  dockerfile = "deploy/Dockerfile"
+
+[env]
+  PREVIEW_MODE = "true"
+  ADMIN_PASSWORD = "Admin1289@@@"
+  CUSTODIAN_PASSWORD = "Jamdar1289@@@"
+  BACKUP_HOUR_UTC = "22"
+  BACKUP_MINUTE_UTC = "30"
+  BACKUP_RETENTION_DAYS = "14"
+
+[[mounts]]
+  source = "amin_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
