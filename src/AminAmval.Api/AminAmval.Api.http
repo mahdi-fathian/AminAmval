@@ -1,0 +1,6 @@
+@AminAmval.Api_HostAddress = http://localhost:5094
+
+GET {{AminAmval.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
