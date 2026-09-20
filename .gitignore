@@ -52,3 +52,10 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+# AminAmval runtime database & generated state (Node.js/SQLite host)
+src/AminAmval.Api/runtime-data/amin.db
+src/AminAmval.Api/runtime-data/amin.db-*
+src/AminAmval.Api/runtime-data/initial-credentials.txt
+src/AminAmval.Api/runtime-data/backups/*.zip
+src/AminAmval.Api/runtime-data/uploads/*
+deploy/node_modules/

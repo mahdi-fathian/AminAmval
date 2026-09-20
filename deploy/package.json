@@ -1,0 +1,18 @@
+{
+  "name": "aminamval-server",
+  "version": "1.1.0",
+  "private": true,
+  "description": "AminAmval (امین اموال ناواکو) — faithful Node.js/SQLite runtime port of the ASP.NET Core API, serving the original wwwroot UI.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "qrcode": "^1.5.4",
+    "xlsx": "^0.18.5"
+  }
+}
