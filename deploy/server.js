@@ -25,8 +25,12 @@ const http = require('./lib/http-util');
 const authmod = require('./lib/auth');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const WEBROOT = process.env.WEBROOT || path.join(REPO_ROOT, 'src', 'AminAmval.Api', 'wwwroot');
-const DATA_DIR = process.env.DATA_DIR || path.join(REPO_ROOT, 'src', 'AminAmval.Api', 'runtime-data');
+const REPO_WEBROOT = path.join(REPO_ROOT, 'src', 'AminAmval.Api', 'wwwroot');
+const REPO_DATA_DIR = path.join(REPO_ROOT, 'src', 'AminAmval.Api', 'runtime-data');
+// Portable/standalone layout fallback: <app>/wwwroot and <app>/data next to server.js
+// (used by the self-contained Windows/zip package; the repo layout still works).
+const WEBROOT = process.env.WEBROOT || (fs.existsSync(REPO_WEBROOT) ? REPO_WEBROOT : path.join(__dirname, 'wwwroot'));
+const DATA_DIR = process.env.DATA_DIR || (fs.existsSync(REPO_DATA_DIR) ? REPO_DATA_DIR : path.join(__dirname, 'data'));
 
 const PREVIEW = (process.env.PREVIEW_MODE || 'true') !== 'false';
 const PORT = parseInt(process.env.PORT || process.env.PREVIEW_PORT || '8080', 10);
