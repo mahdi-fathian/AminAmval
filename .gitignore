@@ -59,3 +59,6 @@ src/AminAmval.Api/runtime-data/initial-credentials.txt
 src/AminAmval.Api/runtime-data/backups/*.zip
 src/AminAmval.Api/runtime-data/uploads/*
 deploy/node_modules/
+
+# Windows delivery artifact (built on demand)
+aminamval-windows-*.zip
