@@ -24,6 +24,41 @@ const { CsrfService } = require('./lib/csrf');
 const http = require('./lib/http-util');
 const authmod = require('./lib/auth');
 
+/* ------------------------------------------------------------------ */
+/* optional startup log file                                           */
+/* When LOG_FILE is set (the Windows launcher sets it to startup-log.txt) */
+/* every console line is also appended to that file, so a failure that   */
+/* closes the window instantly can still be diagnosed afterwards.        */
+/* ------------------------------------------------------------------ */
+if (process.env.LOG_FILE) {
+  try {
+    const logFd = fs.openSync(process.env.LOG_FILE, 'a');
+    const writeLog = (s) => { try { fs.writeSync(logFd, s); } catch { /* ignore */ } };
+    const wrap = (stream) => {
+      const orig = stream.write.bind(stream);
+      stream.write = (chunk, enc, cb) => {
+        try { writeLog(Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk)); } catch { /* ignore */ }
+        return orig(chunk, enc, cb);
+      };
+    };
+    wrap(process.stdout);
+    wrap(process.stderr);
+    global.__aminLog = writeLog;
+    writeLog(`\n===== ${new Date().toISOString()} AminAmval v1.2.0 starting =====\n`);
+  } catch { /* logging must never break the app */ }
+}
+function logFatal(e) {
+  const text = (e && (e.stack || e.message)) || String(e);
+  console.error('[fatal] ' + text);
+  try { if (global.__aminLog) global.__aminLog('[fatal] ' + text + '\n'); } catch { /* ignore */ }
+}
+process.on('uncaughtException', (e) => { logFatal(e); process.exitCode = 1; setTimeout(() => process.exit(1), 400); });
+process.on('unhandledRejection', (e) => { logFatal(e); });
+
+console.log(`[amin] runtime node=${process.version} platform=${process.platform}/${process.arch}`);
+console.log(`[amin] app dir=${__dirname} cwd=${process.cwd()}`);
+if (process.env.LOG_FILE) console.log(`[amin] log file=${process.env.LOG_FILE}`);
+
 const REPO_ROOT = path.resolve(__dirname, '..');
 const REPO_WEBROOT = path.join(REPO_ROOT, 'src', 'AminAmval.Api', 'wwwroot');
 const REPO_DATA_DIR = path.join(REPO_ROOT, 'src', 'AminAmval.Api', 'runtime-data');
@@ -43,11 +78,40 @@ const BACKUP_RETENTION_DAYS = Math.min(Math.max(parseInt(process.env.BACKUP_RETE
 /* ------------------------------------------------------------------ */
 /* storage + database                                                  */
 /* ------------------------------------------------------------------ */
-fs.mkdirSync(DATA_DIR, { recursive: true });
+function fatal(msg, detail) {
+  console.error('');
+  console.error('===================================================================');
+  console.error(' FATAL: ' + msg);
+  if (detail) console.error(' ' + detail);
+  console.error('===================================================================');
+  console.error(' نکته: پوشهٔ برنامه باید روی دیسک استخراج‌شده و قابل‌نوشتن باشد.');
+  console.error(' Note: extract the whole ZIP to a writable folder (not inside the ZIP viewer),');
+  console.error('       e.g. C:\\AminAmval, then run start-windows.bat again.');
+  console.error('');
+  process.exitCode = 1;
+  setTimeout(() => process.exit(1), 150);
+}
+
+try {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const probe = path.join(DATA_DIR, '.write-test');
+  fs.writeFileSync(probe, 'ok');
+  fs.unlinkSync(probe);
+} catch (e) {
+  fatal('cannot create/write the data folder: ' + DATA_DIR, e && e.message);
+}
 const UPLOADS = path.join(DATA_DIR, 'uploads');
 const BACKUPS = path.join(DATA_DIR, 'backups');
 const KEYS = path.join(DATA_DIR, 'keys');
-for (const d of [UPLOADS, BACKUPS, KEYS]) fs.mkdirSync(d, { recursive: true });
+try {
+  for (const d of [UPLOADS, BACKUPS, KEYS]) fs.mkdirSync(d, { recursive: true });
+} catch (e) {
+  fatal('cannot create working folders inside: ' + DATA_DIR, e && e.message);
+}
+
+if (!fs.existsSync(path.join(WEBROOT, 'index.html'))) {
+  fatal('web files not found in: ' + WEBROOT, 'the package is incomplete — please re-extract the ZIP.');
+}
 
 const db = openDatabase(path.join(DATA_DIR, 'amin.db'));
 
@@ -407,11 +471,18 @@ const server = require('node:http').createServer((req, res) => {
 
 server.on('clientError', (err, socket) => { try { socket.destroy(); } catch { } });
 
-server.listen(PORT, HOST, () => {
+function onListening() {
+  const addr = server.address();
+  const actualPort = addr && typeof addr === 'object' ? addr.port : PORT;
+
   const boot = bootstrap();
   console.log('Bootstrap result:', boot);
-  console.log(`[amin] امین اموال ناواکو در حال اجرا روی http://${HOST}:${PORT}`);
+  console.log(`[amin] امین اموال ناواکو در حال اجرا روی http://127.0.0.1:${actualPort}`);
   console.log(`[amin] preview-cookies=${PREVIEW} data=${DATA_DIR}`);
+
+  if (process.platform === 'win32' && process.env.OPEN_BROWSER === '1') {
+    try { require('node:child_process').exec(`start "" "http://127.0.0.1:${actualPort}/"`); } catch { /* opening the browser is optional */ }
+  }
 
   // initial backup shortly after startup (if none exists)
   setTimeout(() => {
@@ -429,7 +500,33 @@ server.listen(PORT, HOST, () => {
       catch (e) { console.warn('[backup] scheduled backup failed, retrying later'); }
     }
   })();
+}
+
+/* If the requested port is busy (very common on Windows: another 8080 app,
+   Skype/Hyper-V reserved ranges, a previous instance still running) the server
+   moves to the next free port instead of crashing — the used URL is printed. */
+server.on('listening', onListening); // registered once — never duplicated on port retries
+let listenAttempt = 0;
+function startListening(port) {
+  server.listen(port, HOST);
+}
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE' && listenAttempt < 20) {
+    listenAttempt += 1;
+    const next = PORT + listenAttempt;
+    console.warn(`[amin] port ${PORT + listenAttempt - 1} is busy — trying ${next} ...`);
+    setTimeout(() => startListening(next), 150);
+    return;
+  }
+  if (err && (err.code === 'EACCES' || err.code === 'EADDRINUSE')) {
+    fatal(`cannot listen on port ${PORT} (${err.code})`, 'close the other program using this port, or set PORT=9090 before starting.');
+    return;
+  }
+  console.error('[amin] server error:', err);
+  process.exitCode = 1;
 });
+
+startListening(PORT);
 
 function nextBackupDelay() {
   const now = new Date();
